@@ -104,4 +104,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // GreenOS: Energy Profiler (Feature 2)
+  int cpu_ticks;
+  int sleep_count;
+  int wake_count;
+  int energy_score;
+
+  // GreenOS: Adaptive Scheduler (Feature 1)
+  int energy_priority;
+
+  // GreenOS: Idle Governor (Feature 3)
+  int power_mode;
+
+  // GreenOS: Budget Enforcement (Feature 4)
+  int energy_budget;
+  int energy_used;
 };

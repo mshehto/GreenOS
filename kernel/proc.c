@@ -146,6 +146,16 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // GreenOS: initialize energy fields
+  p->cpu_ticks = 0;
+  p->sleep_count = 0;
+  p->wake_count = 0;
+  p->energy_score = 0;
+  p->energy_priority = 0;
+  p->power_mode = 1; // default: BALANCED
+  p->energy_budget = 0;
+  p->energy_used = 0;
+
   return p;
 }
 
