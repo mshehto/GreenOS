@@ -462,31 +462,55 @@ scheduler(void)
     intr_on();
     intr_off();
 
-    int found = 0;
+    // GreenOS: Feature 1 - Energy-Aware Scheduler
+    // Find the RUNNABLE process with the highest energy priority
+    struct proc *best = 0;
+    int best_priority = -1;
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
+        // Update energy priority for this process
+        update_energy_priority(p);
 
-        // GreenOS: Track active ticks
-        acquire(&idle_governor.lock);
-        idle_governor.active_ticks++;
-        release(&idle_governor.lock);
-
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        // Select process with highest priority
+        if(best == 0 || p->energy_priority > best_priority) {
+          // Release previous best if we had one
+          if(best != 0) {
+            release(&best->lock);
+          }
+          best = p;
+          best_priority = p->energy_priority;
+          // Keep the lock on best, release it later
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
     }
-    if(found == 0) {
+
+    // If we found a process to run, run it
+    if(best != 0) {
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      best->state = RUNNING;
+      c->proc = best;
+
+      // GreenOS: Track active ticks
+      acquire(&idle_governor.lock);
+      idle_governor.active_ticks++;
+      release(&idle_governor.lock);
+
+      swtch(&c->context, &best->context);
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+
+      release(&best->lock);
+    } else {
       // GreenOS: Adaptive Idle Governor (Feature 3)
       // Intelligent idle management based on power mode
       acquire(&idle_governor.lock);
@@ -620,6 +644,10 @@ sleep(void *chan, struct spinlock *lk)
   p->chan = chan;
   p->state = SLEEPING;
 
+  // GreenOS: Feature 2 - Energy Profiler
+  // Track sleep events
+  p->sleep_count++;
+
   sched();
 
   // Tidy up.
@@ -642,9 +670,64 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        // GreenOS: Feature 2 - Energy Profiler
+        // Track wake events
+        p->wake_count++;
       }
       release(&p->lock);
     }
+  }
+}
+
+// GreenOS: Feature 2 - Energy Profiler
+// Calculate energy score for a process
+// Lower score = more energy efficient (I/O-bound processes)
+// Higher score = less energy efficient (CPU-bound processes)
+void
+update_energy_score(struct proc *p)
+{
+  // Energy score formula:
+  // Base score is CPU ticks (direct measure of CPU usage)
+  // Penalize processes with high CPU usage relative to sleep/wake activity
+  // I/O-bound processes will have many sleep/wake cycles relative to CPU ticks
+
+  int base_score = p->cpu_ticks;
+  int activity_cycles = p->sleep_count + p->wake_count;
+
+  if(activity_cycles > 0) {
+    // Calculate CPU intensity: higher ratio = more CPU-bound = higher score
+    // Multiply by 100 to avoid integer division issues
+    int cpu_intensity = (base_score * 100) / (activity_cycles + 1);
+    p->energy_score = base_score + cpu_intensity;
+  } else {
+    // No sleep/wake activity yet, just use CPU ticks
+    p->energy_score = base_score;
+  }
+}
+
+// GreenOS: Feature 1 - Energy-Aware Scheduler
+// Calculate energy priority for a process
+// Higher priority value = should run sooner
+// Lower energy_score → Higher priority (I/O-bound processes get priority)
+void
+update_energy_priority(struct proc *p)
+{
+  // First update the energy score
+  update_energy_score(p);
+
+  // Priority calculation:
+  // Invert the energy score so lower energy = higher priority
+  // Add bonus for I/O-bound processes (high sleep/wake ratio)
+  int base_priority = 10000 - p->energy_score;
+
+  // Bonus for I/O activity
+  int io_bonus = (p->sleep_count + p->wake_count) * 10;
+
+  p->energy_priority = base_priority + io_bonus;
+
+  // Ensure priority doesn't go negative
+  if(p->energy_priority < 0) {
+    p->energy_priority = 0;
   }
 }
 

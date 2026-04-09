@@ -146,6 +146,9 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_powertest\
+	$U/_energytop\
+	$U/_energytest\
+	$U/_budgettest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

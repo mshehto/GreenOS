@@ -28,6 +28,18 @@ int uptime(void);
 int set_power_mode(int);
 int get_cpu_stats(void);
 
+// GreenOS: Feature 2 - Process Energy Profiler
+struct energy_info {
+  int cpu_ticks;
+  int sleep_count;
+  int wake_count;
+  int energy_score;
+};
+int get_energy_info(int pid, struct energy_info *info);
+
+// GreenOS: Feature 4 - Energy Budget Enforcement
+int set_energy_budget(int budget);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);

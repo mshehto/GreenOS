@@ -104,6 +104,10 @@ extern uint64 sys_close(void);
 // GreenOS: Feature 3 - Adaptive Idle Governor
 extern uint64 sys_set_power_mode(void);
 extern uint64 sys_get_cpu_stats(void);
+// GreenOS: Feature 2 - Process Energy Profiler
+extern uint64 sys_get_energy_info(void);
+// GreenOS: Feature 4 - Energy Budget Enforcement
+extern uint64 sys_set_energy_budget(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -131,6 +135,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_set_power_mode] sys_set_power_mode,
 [SYS_get_cpu_stats]  sys_get_cpu_stats,
+[SYS_get_energy_info] sys_get_energy_info,
+[SYS_set_energy_budget] sys_set_energy_budget,
 };
 
 void

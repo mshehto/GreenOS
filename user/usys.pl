@@ -44,3 +44,5 @@ entry("pause");
 entry("uptime");
 entry("set_power_mode");
 entry("get_cpu_stats");
+entry("get_energy_info");
+entry("set_energy_budget");

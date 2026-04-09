@@ -23,3 +23,7 @@
 // GreenOS: Feature 3 - Adaptive Idle Governor
 #define SYS_set_power_mode 22
 #define SYS_get_cpu_stats  23
+// GreenOS: Feature 2 - Process Energy Profiler
+#define SYS_get_energy_info 24
+// GreenOS: Feature 4 - Energy Budget Enforcement
+#define SYS_set_energy_budget 25

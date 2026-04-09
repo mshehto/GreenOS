@@ -171,6 +171,30 @@ clockintr()
     release(&tickslock);
   }
 
+  // GreenOS: Feature 2 - Energy Profiler
+  // Increment cpu_ticks for the running process
+  struct proc *p = myproc();
+  if(p != 0) {
+    acquire(&p->lock);
+    p->cpu_ticks++;
+
+    // GreenOS: Feature 4 - Energy Budget Enforcement
+    // Check if process has exceeded its energy budget
+    if(p->energy_budget > 0) {
+      int ticks_used = p->cpu_ticks - p->energy_used;
+      if(ticks_used > p->energy_budget) {
+        // Budget exceeded - force yield to throttle the process
+        // Lower its priority significantly
+        p->energy_priority = 0;
+        release(&p->lock);
+        yield();
+        return; // Don't continue after yield
+      }
+    }
+
+    release(&p->lock);
+  }
+
   // ask for the next timer interrupt. this also clears
   // the interrupt request. 1000000 is about a tenth
   // of a second.

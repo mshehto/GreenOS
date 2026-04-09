@@ -156,3 +156,69 @@ sys_get_cpu_stats(void)
   utilization = (active * 100) / total;
   return utilization;
 }
+
+// GreenOS: Feature 2 - Process Energy Profiler
+// System call to get energy profiling information for a process
+extern struct proc proc[NPROC];
+
+uint64
+sys_get_energy_info(void)
+{
+  int pid;
+  uint64 info_addr;
+  struct proc *p;
+
+  // Get arguments: pid and pointer to info struct
+  argint(0, &pid);
+  argaddr(1, &info_addr);
+
+  // Find the process with the given pid
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid == pid) {
+      // Update energy score before returning
+      update_energy_score(p);
+
+      // Copy energy data to user space
+      // We'll copy 4 integers: cpu_ticks, sleep_count, wake_count, energy_score
+      int data[4];
+      data[0] = p->cpu_ticks;
+      data[1] = p->sleep_count;
+      data[2] = p->wake_count;
+      data[3] = p->energy_score;
+
+      release(&p->lock);
+
+      // Copy to user space
+      if(copyout(myproc()->pagetable, info_addr, (char *)data, sizeof(data)) < 0) {
+        return -1;
+      }
+      return 0; // Success
+    }
+    release(&p->lock);
+  }
+
+  return -1; // Process not found
+}
+
+// GreenOS: Feature 4 - Energy Budget Enforcement
+// System call to set energy budget for the calling process
+uint64
+sys_set_energy_budget(void)
+{
+  int budget;
+  argint(0, &budget);
+
+  // Validate the budget (must be positive or 0 to disable)
+  if(budget < 0) {
+    return -1; // Invalid budget
+  }
+
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->energy_budget = budget;
+  p->energy_used = p->cpu_ticks; // Start tracking from current usage
+  release(&p->lock);
+
+  return 0; // Success
+}
