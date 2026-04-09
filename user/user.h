@@ -24,6 +24,9 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+// GreenOS: Feature 3 - Adaptive Idle Governor
+int set_power_mode(int);
+int get_cpu_stats(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

@@ -81,6 +81,13 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// GreenOS: Power modes for Adaptive Idle Governor (Feature 3)
+enum powermode {
+  POWER_ECO = 0,        // Aggressive sleep, maximum energy saving
+  POWER_BALANCED = 1,   // Default mode, moderate sleep
+  POWER_PERFORMANCE = 2 // Minimal sleep, maximum responsiveness
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;

@@ -107,3 +107,52 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// GreenOS: Feature 3 - Adaptive Idle Governor
+// System call to set the global power mode
+extern struct {
+  struct spinlock lock;
+  uint64 idle_ticks;
+  uint64 active_ticks;
+  int current_mode;
+} idle_governor;
+
+uint64
+sys_set_power_mode(void)
+{
+  int mode;
+  argint(0, &mode);
+
+  // Validate the power mode
+  if(mode < 0 || mode > 2) {
+    return -1; // Invalid mode
+  }
+
+  // Set the global power mode
+  acquire(&idle_governor.lock);
+  idle_governor.current_mode = mode;
+  release(&idle_governor.lock);
+
+  return 0; // Success
+}
+
+// GreenOS: Feature 3 - Get CPU utilization statistics
+uint64
+sys_get_cpu_stats(void)
+{
+  uint64 idle, active, total, utilization;
+
+  acquire(&idle_governor.lock);
+  idle = idle_governor.idle_ticks;
+  active = idle_governor.active_ticks;
+  release(&idle_governor.lock);
+
+  total = idle + active;
+  if(total == 0) {
+    return 0; // No data yet
+  }
+
+  // Return utilization percentage (active / total * 100)
+  utilization = (active * 100) / total;
+  return utilization;
+}

@@ -20,3 +20,6 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+// GreenOS: Feature 3 - Adaptive Idle Governor
+#define SYS_set_power_mode 22
+#define SYS_get_cpu_stats  23

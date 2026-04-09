@@ -15,6 +15,14 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
+// GreenOS: Adaptive Idle Governor (Feature 3) - Global statistics
+struct {
+  struct spinlock lock;
+  uint64 idle_ticks;   // Total ticks spent in idle state
+  uint64 active_ticks; // Total ticks spent running processes
+  int current_mode;    // Global power mode (default: POWER_BALANCED)
+} idle_governor;
+
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
@@ -48,9 +56,16 @@ void
 procinit(void)
 {
   struct proc *p;
-  
+
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+
+  // GreenOS: Initialize idle governor
+  initlock(&idle_governor.lock, "idle_governor");
+  idle_governor.idle_ticks = 0;
+  idle_governor.active_ticks = 0;
+  idle_governor.current_mode = POWER_BALANCED;
+
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -456,6 +471,12 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        // GreenOS: Track active ticks
+        acquire(&idle_governor.lock);
+        idle_governor.active_ticks++;
+        release(&idle_governor.lock);
+
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -466,8 +487,39 @@ scheduler(void)
       release(&p->lock);
     }
     if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+      // GreenOS: Adaptive Idle Governor (Feature 3)
+      // Intelligent idle management based on power mode
+      acquire(&idle_governor.lock);
+      idle_governor.idle_ticks++;
+      int mode = idle_governor.current_mode;
+      release(&idle_governor.lock);
+
+      // Different idle strategies based on power mode
+      switch(mode) {
+        case POWER_ECO:
+          // Eco mode: Aggressive sleep, more idle time between checks
+          // Multiple wfi instructions for deeper sleep
+          asm volatile("wfi");
+          asm volatile("wfi");
+          asm volatile("wfi");
+          break;
+
+        case POWER_BALANCED:
+          // Balanced mode: Standard sleep behavior
+          asm volatile("wfi");
+          break;
+
+        case POWER_PERFORMANCE:
+          // Performance mode: Minimal sleep, quick wake-up
+          // Just a short pause, no wfi (busy-wait for faster response)
+          // In a real system, this would use a lighter sleep state
+          break;
+
+        default:
+          // Fallback to balanced
+          asm volatile("wfi");
+          break;
+      }
     }
   }
 }
